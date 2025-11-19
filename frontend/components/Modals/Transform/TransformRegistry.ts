@@ -5,6 +5,7 @@ import {
   RecodeDifferentVariablesModal,
 } from "./recode";
 import ComputeVariableModal from "./ComputeVariable/ComputeVariableModal";
+import RankCasesModal from "./RankCases/RankCasesModal";
 
 /**
  * TRANSFORM_MODAL_COMPONENTS - Registry for transform modal components
@@ -18,6 +19,7 @@ export const TRANSFORM_MODAL_COMPONENTS: Record<
   [ModalType.RecodeSameVariables]: RecodeSameVariablesModal,
   [ModalType.RecodeDifferentVariables]: RecodeDifferentVariablesModal,
   [ModalType.ComputeVariable]: ComputeVariableModal,
+  [ModalType.RankCases]: RankCasesModal,
 
   // Add more transform modal components here as needed
 };
@@ -53,6 +55,7 @@ export const TRANSFORM_MODAL_CONTAINER_PREFERENCES: Partial<
   [ModalType.RecodeSameVariables]: "sidebar",
   [ModalType.RecodeDifferentVariables]: "sidebar",
   [ModalType.ComputeVariable]: "sidebar",
+  [ModalType.RankCases]: "dialog",
 };
 
 /**
