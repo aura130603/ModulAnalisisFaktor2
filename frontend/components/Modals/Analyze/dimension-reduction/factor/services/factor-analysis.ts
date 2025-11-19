@@ -209,9 +209,7 @@ export async function analyzeFactor({
             return;
         }
 
-        // --- AWAL PERBAIKAN: Mengganti getSlicedData dengan transformasi data mentah penuh ---
-
-        // 1. Buat peta (map) untuk menemukan indeks kolom berdasarkan nama variabel
+        // Build map of variable names to their column indices
         const columnIndexMap = new Map<string, number>();
         variables.forEach(v => {
             if (targetVariables.includes(v.name)) {
@@ -219,38 +217,40 @@ export async function analyzeFactor({
             }
         });
 
-        // 2. Inisialisasi array 2D untuk menyimpan data dalam format Variabel x Sampel
+        // Initialize array to store data in Variables x Samples format
         // Format: [ [VAR1_sample1, VAR1_sample2, ...], [VAR2_sample1, VAR2_sample2, ...] ]
         const slicedDataForTarget: number[][] = targetVariables.map(() => []);
 
-        // 3. Iterasi melalui semua baris (SAMPEL) dari data mentah (dataVariables)
-        // Ini memastikan N (jumlah sampel) > 1 jika dataVariables memiliki banyak baris.
+        // Iterate through all data rows and extract values for target variables
+        // This ensures we capture all samples and proper data shape
         dataVariables.forEach((row) => {
             targetVariables.forEach((varName, varIndex) => {
                 const colIndex = columnIndexMap.get(varName);
 
-                if (colIndex !== undefined) {
+                if (colIndex !== undefined && colIndex < row.length) {
                     const rawValue = row[colIndex];
-                    
-                    // Logika konversi dan penanganan nilai kosong/null
-                    const stringValue = rawValue === null || rawValue === undefined || rawValue === ""
-                        ? ""
-                        : String(rawValue);
-                    
-                    const num = parseFloat(stringValue.replace(",", "."));
-                    
-                    // Hanya push nilai numerik yang valid (jika NaN/Kosong, maka diabaikan)
-                    if (!isNaN(num)) { 
-                        slicedDataForTarget[varIndex].push(num);
+
+                    // Convert value to number, handling various formats
+                    let numericValue: number;
+
+                    if (rawValue === null || rawValue === undefined || rawValue === "") {
+                        numericValue = NaN; // Null/empty becomes NaN
+                    } else if (typeof rawValue === 'number') {
+                        numericValue = rawValue;
+                    } else {
+                        // Parse string values, handling comma as decimal separator
+                        const stringValue = String(rawValue);
+                        numericValue = parseFloat(stringValue.replace(",", "."));
                     }
+
+                    // Push value even if NaN - the worker will handle missing values during calculation
+                    slicedDataForTarget[varIndex].push(numericValue);
                 }
             });
         });
 
-        // Perhatian: Dengan kode ini, Anda mengabaikan `getSlicedData` dan langsung memproses `dataVariables`.
-        // Anda juga mengabaikan baris kosong, sehingga `samples` akan mencerminkan jumlah baris data yang valid.
-
-        // console.log("DATA BARU UNTUK WORKER:", {
+        // Debug log (can be uncommented to verify data structure)
+        // console.log("Data sent to factor analysis worker:", {
         //     variables: targetVariables,
         //     shape: {
         //         variables: slicedDataForTarget.length,
@@ -258,8 +258,6 @@ export async function analyzeFactor({
         //     },
         //     data: slicedDataForTarget
         // });
-        
-        // --- AKHIR PERBAIKAN ---
 
         const results = await performAnalysisWithWorker(
             slicedDataForTarget, // Menggunakan data yang sudah diformat dengan sampel > 1
