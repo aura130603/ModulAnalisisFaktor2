@@ -333,7 +333,9 @@ const HamburgerMenu: React.FC = () => {
                     Prepare Data for Modeling
                   </DrawerMenuItem>
                   <DrawerMenuSeparator />
-                  <DrawerMenuItem disabled>Rank Cases...</DrawerMenuItem>
+                  <DrawerMenuItem onClick={() => openModal(ModalType.RankCases)}>
+                    Rank Cases...
+                  </DrawerMenuItem>
                   <DrawerMenuSeparator />
                   <DrawerMenuItem disabled>
                     Date and Time Wizard...
