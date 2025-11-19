@@ -59,6 +59,7 @@ export enum ModalType {
     ComputeVariable = "ComputeVariable",
     RecodeSameVariables = "RecodeSameVariables",
     RecodeDifferentVariables = "RecodeDifferentVariables",
+    RankCases = "RankCases",
 
     // Regression modals - Analisis regresi dan model terkait
     ModalAutomaticLinearModeling = "ModalAutomaticLinearModeling",
@@ -252,6 +253,7 @@ export const MODAL_CATEGORIES: Record<ModalType, ModalCategory> = {
     [ModalType.ComputeVariable]: ModalCategory.Transform,
     [ModalType.RecodeSameVariables]: ModalCategory.Transform,
     [ModalType.RecodeDifferentVariables]: ModalCategory.Transform,
+    [ModalType.RankCases]: ModalCategory.Transform,
 
     // Regression modals
     [ModalType.ModalAutomaticLinearModeling]: ModalCategory.Regression,
@@ -489,6 +491,8 @@ export function getModalTitle(type: ModalType): string {
             return "Two Related Samples Tests";
         case ModalType.KRelatedSamples:
             return "K Related Samples Tests";
+        case ModalType.RankCases:
+            return "Rank Cases";
 
         // General Linear Model modals
         case ModalType.ModalUnivariate:
