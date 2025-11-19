@@ -18,6 +18,7 @@ import { useVariableStore } from "@/stores/useVariableStore";
 import { useDataStore } from "@/stores/useDataStore";
 import { Variable } from "@/types/Variable";
 import { ArrowRightIcon } from "lucide-react";
+import RankTypesDialog, { RankTypesState } from "./RankTypesDialog";
 
 interface RankCasesModalProps {
   onClose: () => void;
@@ -39,6 +40,19 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
   const [displaySummary, setDisplaySummary] = useState(true);
   const [draggedVariable, setDraggedVariable] = useState<string | null>(null);
   const [dragSource, setDragSource] = useState<"list" | "selected" | "by" | null>(null);
+  const [rankTypesOpen, setRankTypesOpen] = useState(false);
+  const [rankTypesState, setRankTypesState] = useState<RankTypesState>({
+    rank: true,
+    savageScore: false,
+    fractionalRank: false,
+    fractionalRankPercent: false,
+    sumCaseWeights: false,
+    ntiles: false,
+    ntilesValue: "4",
+    proportionEstimates: false,
+    normalScores: false,
+    proportionFormula: "blom",
+  });
 
   const handleDragStart = useCallback(
     (e: React.DragEvent<HTMLDivElement>, variable: string, source: "list" | "selected" | "by") => {
@@ -271,6 +285,7 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
           <div className="flex flex-col gap-3 justify-start">
             <Button
               variant="outline"
+              onClick={() => setRankTypesOpen(true)}
               className="border-2 border-blue-500 text-blue-600 hover:bg-blue-50 font-medium"
             >
               Rank Types...
@@ -283,6 +298,14 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
             </Button>
           </div>
         </div>
+
+        {/* Rank Types Dialog */}
+        <RankTypesDialog
+          open={rankTypesOpen}
+          onOpenChange={setRankTypesOpen}
+          state={rankTypesState}
+          onChange={setRankTypesState}
+        />
 
         {/* Bottom Options */}
         <div className="flex gap-8 py-4 border-t">
