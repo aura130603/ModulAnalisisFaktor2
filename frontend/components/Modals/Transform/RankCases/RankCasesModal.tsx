@@ -10,28 +10,19 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { useVariableStore } from "@/stores/useVariableStore";
 import { useDataStore } from "@/stores/useDataStore";
 import { Variable } from "@/types/Variable";
+import { ArrowRightIcon } from "lucide-react";
 
 interface RankCasesModalProps {
   onClose: () => void;
   containerType?: "dialog" | "sidebar";
 }
-
-type TieHandling = "average" | "first" | "random" | "last";
-type SortOrder = "ascending" | "descending";
 
 const RankCasesModal: React.FC<RankCasesModalProps> = ({
   onClose,
@@ -39,276 +30,339 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
 }) => {
   const variables = useVariableStore((state) => state.variables);
   const data = useDataStore((state) => state.data);
-  const addVariable = useVariableStore((state) => state.addVariable);
-  const updateCells = useDataStore((state) => state.updateCells);
 
   const [selectedVariables, setSelectedVariables] = useState<string[]>([]);
-  const [tieHandling, setTieHandling] = useState<TieHandling>("average");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("ascending");
-  const [rankPrefix, setRankPrefix] = useState("R_");
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [byVariables, setByVariables] = useState<string[]>([]);
+  const [assignRankTo, setAssignRankTo] = useState<"smallest" | "largest">(
+    "largest"
+  );
+  const [displaySummary, setDisplaySummary] = useState(true);
+  const [draggedVariable, setDraggedVariable] = useState<string | null>(null);
+  const [dragSource, setDragSource] = useState<"list" | "selected" | "by" | null>(null);
 
-  const toggleVariable = useCallback((varName: string) => {
-    setSelectedVariables((prev) =>
-      prev.includes(varName)
-        ? prev.filter((v) => v !== varName)
-        : [...prev, varName]
-    );
+  const handleDragStart = useCallback(
+    (e: React.DragEvent<HTMLDivElement>, variable: string, source: "list" | "selected" | "by") => {
+      setDraggedVariable(variable);
+      setDragSource(source);
+      e.dataTransfer.effectAllowed = "move";
+    },
+    []
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
   }, []);
 
-  const calculateRanks = (values: (string | number | null)[]): number[] => {
-    // Create array of {index, value, isNull} for sorting
-    const indexed = values.map((val, idx) => ({
-      index: idx,
-      value:
-        val === null || val === undefined || val === ""
-          ? NaN
-          : Number(val),
-      original: val,
-    }));
+  const handleDropVariable = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      if (!draggedVariable) return;
 
-    // Separate valid and invalid values
-    const valid = indexed.filter((x) => !isNaN(x.value));
-    const invalid = indexed.filter((x) => isNaN(x.value));
-
-    if (valid.length === 0) {
-      // All values are null/invalid
-      return values.map(() => NaN);
-    }
-
-    // Sort by value
-    const sorted =
-      sortOrder === "ascending"
-        ? [...valid].sort((a, b) => a.value - b.value)
-        : [...valid].sort((a, b) => b.value - a.value);
-
-    // Assign ranks
-    const ranks = new Array(sorted.length);
-
-    for (let i = 0; i < sorted.length; ) {
-      const current = sorted[i].value;
-
-      // Find all elements with the same value
-      let j = i;
-      while (j < sorted.length && sorted[j].value === current) {
-        j++;
+      // Remove from source
+      if (dragSource === "selected") {
+        setSelectedVariables((prev) =>
+          prev.filter((v) => v !== draggedVariable)
+        );
+      } else if (dragSource === "by") {
+        setByVariables((prev) => prev.filter((v) => v !== draggedVariable));
       }
 
-      const ties = j - i;
-      const startRank = i + 1;
-      const endRank = j;
-      let assignedRank: number;
+      // Add to Variable(s) box
+      setSelectedVariables((prev) =>
+        prev.includes(draggedVariable) ? prev : [...prev, draggedVariable]
+      );
 
-      if (tieHandling === "average") {
-        assignedRank = (startRank + endRank) / 2;
-      } else if (tieHandling === "first") {
-        assignedRank = startRank;
-      } else if (tieHandling === "last") {
-        assignedRank = endRank;
-      } else if (tieHandling === "random") {
-        assignedRank = startRank + Math.floor(Math.random() * ties);
-      } else {
-        assignedRank = (startRank + endRank) / 2;
+      setDraggedVariable(null);
+      setDragSource(null);
+    },
+    [draggedVariable, dragSource]
+  );
+
+  const handleDropBy = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      if (!draggedVariable) return;
+
+      // Remove from source
+      if (dragSource === "selected") {
+        setSelectedVariables((prev) =>
+          prev.filter((v) => v !== draggedVariable)
+        );
+      } else if (dragSource === "by") {
+        setByVariables((prev) => prev.filter((v) => v !== draggedVariable));
       }
 
-      for (let k = i; k < j; k++) {
-        ranks[k] = assignedRank;
-      }
+      // Add to By box
+      setByVariables((prev) =>
+        prev.includes(draggedVariable) ? prev : [...prev, draggedVariable]
+      );
 
-      i = j;
-    }
+      setDraggedVariable(null);
+      setDragSource(null);
+    },
+    [draggedVariable, dragSource]
+  );
 
-    // Build result array
-    const result = new Array(values.length);
-    let rankIdx = 0;
-
-    for (const item of sorted) {
-      result[item.index] = ranks[rankIdx++];
-    }
-
-    for (const item of invalid) {
-      result[item.index] = NaN;
-    }
-
-    return result;
+  const handleRemoveVariable = (variable: string) => {
+    setSelectedVariables((prev) => prev.filter((v) => v !== variable));
   };
 
-  const handleApply = async () => {
-    if (selectedVariables.length === 0) {
-      toast.error("Please select at least one variable to rank");
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      const maxColumnIndex = Math.max(
-        ...variables.map((v) => v.columnIndex),
-        -1
-      );
-
-      // For each selected variable, calculate ranks and create a new variable
-      for (const varName of selectedVariables) {
-        const variable = variables.find((v) => v.name === varName);
-        if (!variable) continue;
-
-        // Get column data
-        const columnData = data.map((row) => row[variable.columnIndex]);
-
-        // Calculate ranks
-        const ranks = calculateRanks(columnData);
-
-        // Create new variable for ranks
-        const newVarName = `${rankPrefix}${varName}`;
-        const newColumnIndex = maxColumnIndex + selectedVariables.indexOf(varName) + 1;
-
-        // Add the new variable to the store
-        addVariable({
-          name: newVarName,
-          columnIndex: newColumnIndex,
-          type: "NUMERIC",
-          width: 8,
-          decimals: 2,
-          label: `Rank of ${varName}`,
-          values: "",
-          missing: "",
-          alignment: "right",
-          measure: "ordinal",
-        });
-
-        // Update the data store with the rank values
-        const updates = ranks.map((rank, rowIndex) => ({
-          row: rowIndex,
-          col: newColumnIndex,
-          value: isNaN(rank) ? "" : rank,
-        }));
-
-        await updateCells(updates);
-      }
-
-      toast.success(
-        `Created ${selectedVariables.length} rank variable(s)`
-      );
-      onClose();
-    } catch (error) {
-      console.error("Error ranking cases:", error);
-      toast.error("Failed to rank cases");
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleRemoveByVariable = (variable: string) => {
+    setByVariables((prev) => prev.filter((v) => v !== variable));
   };
 
   const numericVariables = variables.filter(
     (v) => v.type === "NUMERIC" || v.type === "COMMA" || v.type === "DOT"
   );
 
+  const availableVariables = numericVariables.filter(
+    (v) => !selectedVariables.includes(v.name) && !byVariables.includes(v.name)
+  );
+
+  const isOKEnabled = selectedVariables.length > 0 && byVariables.length > 0;
+
+  const handleOK = () => {
+    if (!isOKEnabled) {
+      toast.error("Please select variables for both Variable(s) and By");
+      return;
+    }
+    toast.success(
+      `Ranking ${selectedVariables.length} variable(s) grouped by ${byVariables.length} variable(s)`
+    );
+    onClose();
+  };
+
+  const handleReset = () => {
+    setSelectedVariables([]);
+    setByVariables([]);
+    setAssignRankTo("largest");
+    setDisplaySummary(true);
+  };
+
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl max-h-screen overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Rank Cases</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Variables Selection */}
-          <div className="space-y-3">
-            <Label className="text-base font-semibold">
-              Select Variables to Rank
-            </Label>
-            <ScrollArea className="border rounded-md p-4 h-48">
-              <div className="space-y-2">
-                {numericVariables.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No numeric variables available
-                  </p>
-                ) : (
-                  numericVariables.map((variable) => (
-                    <div
-                      key={variable.name}
-                      className="flex items-center space-x-2"
-                    >
-                      <Checkbox
-                        id={`var-${variable.name}`}
-                        checked={selectedVariables.includes(variable.name)}
-                        onCheckedChange={() => toggleVariable(variable.name)}
-                      />
-                      <Label
-                        htmlFor={`var-${variable.name}`}
-                        className="font-normal cursor-pointer"
+        <div className="flex gap-6 py-4">
+          {/* Left: Available Variables List */}
+          <div className="flex-1 min-w-0">
+            <div className="border-2 border-blue-400 rounded p-3 h-80 flex flex-col">
+              <div className="flex items-center gap-2 mb-2 pb-2 border-b">
+                <div className="w-5 h-5 bg-blue-200 rounded flex items-center justify-center text-xs">
+                  📋
+                </div>
+                <span className="text-sm font-medium">nilai</span>
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="space-y-1 pr-4">
+                  {availableVariables.length === 0 ? (
+                    <p className="text-xs text-muted-foreground p-2">
+                      All variables assigned
+                    </p>
+                  ) : (
+                    availableVariables.map((variable) => (
+                      <div
+                        key={variable.name}
+                        draggable
+                        onDragStart={(e) =>
+                          handleDragStart(e, variable.name, "list")
+                        }
+                        className="p-2 bg-blue-50 rounded border border-blue-200 text-sm cursor-move hover:bg-blue-100 truncate"
                       >
                         {variable.name}
-                        {variable.label && ` (${variable.label})`}
-                      </Label>
-                    </div>
-                  ))
-                )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
+
+          {/* Center: Target Boxes and Controls */}
+          <div className="flex flex-col gap-4 justify-start">
+            {/* Variable(s) Box */}
+            <div className="flex gap-3 items-start">
+              <div className="flex-1 min-w-0">
+                <Label className="text-sm font-medium mb-2 block">
+                  Variable(s):
+                </Label>
+                <div
+                  onDragOver={handleDragOver}
+                  onDrop={handleDropVariable}
+                  className="border-2 border-gray-300 rounded p-3 bg-white h-32 min-w-xs"
+                >
+                  <div className="space-y-1 text-sm">
+                    {selectedVariables.map((variable) => (
+                      <div
+                        key={variable}
+                        draggable
+                        onDragStart={(e) =>
+                          handleDragStart(e, variable, "selected")
+                        }
+                        className="p-1.5 bg-blue-50 rounded border border-blue-200 flex justify-between items-center cursor-move hover:bg-blue-100 group"
+                      >
+                        <span>{variable}</span>
+                        <button
+                          onClick={() => handleRemoveVariable(variable)}
+                          className="text-xs opacity-0 group-hover:opacity-100 text-red-500"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </ScrollArea>
+
+              {/* Arrow Button */}
+              <div className="flex flex-col items-center justify-center pt-8">
+                <button className="border-2 border-blue-400 rounded p-2 hover:bg-blue-50 transition">
+                  <ArrowRightIcon className="w-5 h-5 text-blue-500" />
+                </button>
+              </div>
+            </div>
+
+            {/* By Box */}
+            <div className="flex gap-3 items-start">
+              <div className="flex-1 min-w-0">
+                <Label className="text-sm font-medium mb-2 block">By:</Label>
+                <div
+                  onDragOver={handleDragOver}
+                  onDrop={handleDropBy}
+                  className="border-2 border-gray-300 rounded p-3 bg-white h-24 min-w-xs"
+                >
+                  <div className="space-y-1 text-sm">
+                    {byVariables.map((variable) => (
+                      <div
+                        key={variable}
+                        draggable
+                        onDragStart={(e) =>
+                          handleDragStart(e, variable, "by")
+                        }
+                        className="p-1.5 bg-blue-50 rounded border border-blue-200 flex justify-between items-center cursor-move hover:bg-blue-100 group"
+                      >
+                        <span>{variable}</span>
+                        <button
+                          onClick={() => handleRemoveByVariable(variable)}
+                          className="text-xs opacity-0 group-hover:opacity-100 text-red-500"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Arrow Button */}
+              <div className="flex flex-col items-center justify-center pt-8">
+                <button className="border-2 border-blue-400 rounded p-2 hover:bg-blue-50 transition">
+                  <ArrowRightIcon className="w-5 h-5 text-blue-500" />
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Tie Handling */}
-          <div className="space-y-2">
-            <Label htmlFor="tie-handling">Handling of Ties</Label>
-            <Select value={tieHandling} onValueChange={(v) => setTieHandling(v as TieHandling)}>
-              <SelectTrigger id="tie-handling">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="average">Average</SelectItem>
-                <SelectItem value="first">First</SelectItem>
-                <SelectItem value="last">Last</SelectItem>
-                <SelectItem value="random">Random</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              {tieHandling === "average" &&
-                "When values are equal, assign the average of their ranks"}
-              {tieHandling === "first" &&
-                "When values are equal, assign the lowest rank"}
-              {tieHandling === "last" &&
-                "When values are equal, assign the highest rank"}
-              {tieHandling === "random" &&
-                "When values are equal, randomly assign ranks within the group"}
-            </p>
-          </div>
-
-          {/* Sort Order */}
-          <div className="space-y-2">
-            <Label htmlFor="sort-order">Sort Order</Label>
-            <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as SortOrder)}>
-              <SelectTrigger id="sort-order">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ascending">Ascending (1 = smallest)</SelectItem>
-                <SelectItem value="descending">Descending (1 = largest)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Rank Variable Names */}
-          <div className="space-y-2">
-            <Label htmlFor="rank-prefix">Rank Variable Name Prefix</Label>
-            <Input
-              id="rank-prefix"
-              value={rankPrefix}
-              onChange={(e) => setRankPrefix(e.target.value)}
-              placeholder="R_"
-              className="max-w-xs"
-            />
-            <p className="text-xs text-muted-foreground">
-              New variables will be named: {rankPrefix}
-              {selectedVariables[0] || "VARIABLE"}
-            </p>
+          {/* Right: Options Buttons */}
+          <div className="flex flex-col gap-3 justify-start">
+            <Button
+              variant="outline"
+              className="border-2 border-blue-500 text-blue-600 hover:bg-blue-50 font-medium"
+            >
+              Rank Types...
+            </Button>
+            <Button
+              variant="outline"
+              className="border-2 border-blue-500 text-blue-600 hover:bg-blue-50 font-medium"
+            >
+              Ties...
+            </Button>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isProcessing}>
+        {/* Bottom Options */}
+        <div className="flex gap-8 py-4 border-t">
+          {/* Left: Assign Rank 1 to */}
+          <div className="flex-1">
+            <Label className="text-sm font-medium mb-3 block">
+              Assign Rank 1 to
+            </Label>
+            <RadioGroup value={assignRankTo} onValueChange={(v) => setAssignRankTo(v as "smallest" | "largest")}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="smallest" id="smallest" />
+                <Label htmlFor="smallest" className="font-normal cursor-pointer">
+                  Smallest value
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="largest" id="largest" />
+                <Label htmlFor="largest" className="font-normal cursor-pointer">
+                  Largest value
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {/* Right: Display Summary */}
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="display-summary"
+              checked={displaySummary}
+              onCheckedChange={(checked) =>
+                setDisplaySummary(checked === true)
+              }
+            />
+            <Label
+              htmlFor="display-summary"
+              className="font-normal cursor-pointer"
+            >
+              Display summary tables
+            </Label>
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <DialogFooter className="flex gap-2 justify-end border-t pt-4">
+          <Button
+            onClick={handleOK}
+            disabled={!isOKEnabled}
+            className={
+              isOKEnabled
+                ? "bg-gray-400 hover:bg-gray-500"
+                : "bg-gray-300 cursor-not-allowed"
+            }
+          >
+            OK
+          </Button>
+          <Button
+            variant="outline"
+            className="border-gray-400 text-gray-700 hover:bg-gray-50"
+          >
+            Paste
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleReset}
+            className="border-blue-500 text-blue-600 hover:bg-blue-50"
+          >
+            Reset
+          </Button>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="border-blue-500 text-blue-600 hover:bg-blue-50"
+          >
             Cancel
           </Button>
-          <Button onClick={handleApply} disabled={isProcessing}>
-            {isProcessing ? "Processing..." : "Apply"}
+          <Button
+            variant="outline"
+            className="border-blue-500 text-blue-600 hover:bg-blue-50"
+          >
+            Help
           </Button>
         </DialogFooter>
       </DialogContent>
