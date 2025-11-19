@@ -19,6 +19,7 @@ import { useDataStore } from "@/stores/useDataStore";
 import { Variable } from "@/types/Variable";
 import { ArrowRightIcon } from "lucide-react";
 import RankTypesDialog, { RankTypesState } from "./RankTypesDialog";
+import TiesDialog, { TieHandling } from "./TiesDialog";
 
 interface RankCasesModalProps {
   onClose: () => void;
@@ -53,6 +54,8 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
     normalScores: false,
     proportionFormula: "blom",
   });
+  const [tiesOpen, setTiesOpen] = useState(false);
+  const [tieHandling, setTieHandling] = useState<TieHandling>("mean");
 
   const handleDragStart = useCallback(
     (e: React.DragEvent<HTMLDivElement>, variable: string, source: "list" | "selected" | "by") => {
@@ -292,6 +295,7 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
             </Button>
             <Button
               variant="outline"
+              onClick={() => setTiesOpen(true)}
               className="border-2 border-blue-500 text-blue-600 hover:bg-blue-50 font-medium"
             >
               Ties...
@@ -305,6 +309,14 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
           onOpenChange={setRankTypesOpen}
           state={rankTypesState}
           onChange={setRankTypesState}
+        />
+
+        {/* Ties Dialog */}
+        <TiesDialog
+          open={tiesOpen}
+          onOpenChange={setTiesOpen}
+          value={tieHandling}
+          onChange={setTieHandling}
         />
 
         {/* Bottom Options */}
