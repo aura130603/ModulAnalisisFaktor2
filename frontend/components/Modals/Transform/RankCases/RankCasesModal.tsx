@@ -143,14 +143,144 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
 
   const isOKEnabled = selectedVariables.length > 0;
 
-  const handleOK = () => {
+  const processRanking = async () => {
     if (!isOKEnabled) {
       toast.error("Please select at least one variable");
       return;
     }
-    const byInfo = byVariables.length > 0 ? ` grouped by ${byVariables.length} variable(s)` : "";
-    toast.success(`Ranking ${selectedVariables.length} variable(s)${byInfo}`);
-    onClose();
+
+    setIsProcessing(true);
+    try {
+      // Only process if "Rank" type is selected
+      if (!rankTypesState.rank) {
+        toast.error("Please select 'Rank' option in Rank Types");
+        setIsProcessing(false);
+        return;
+      }
+
+      // Create a copy of data to modify
+      let updatedData = data.map(row => [...row]);
+      const headers = updatedData[0];
+      const newVariables: Variable[] = [];
+
+      // Process each selected variable
+      for (const varName of selectedVariables) {
+        const variable = variables.find(v => v.name === varName);
+        if (!variable) continue;
+
+        // Calculate ranks using worker
+        const rankedValues = await calculateRanksWithWorker(
+          updatedData,
+          variable.columnIndex,
+          assignRankTo,
+          tieHandling
+        );
+
+        // Create new variable for ranked values
+        const newVarName = `R${varName}`;
+        const newColumnIndex = headers.length;
+
+        // Add header
+        headers.push(newVarName);
+
+        // Add ranked values to data
+        updatedData.forEach((row, idx) => {
+          if (idx === 0) return; // Skip header row
+          row.push(rankedValues[idx - 1]);
+        });
+
+        // Create new variable metadata
+        const newVariable: Variable = {
+          tempId: `temp_${Date.now()}_${Math.random()}`,
+          columnIndex: newColumnIndex,
+          name: newVarName,
+          type: "NUMERIC",
+          width: 8,
+          decimals: 2,
+          label: `Rank of ${varName}`,
+          values: [],
+          missing: null,
+          columns: 64,
+          align: "right",
+          measure: "ordinal",
+          role: "output"
+        };
+
+        newVariables.push(newVariable);
+      }
+
+      // Update data store
+      setData(updatedData);
+
+      // Add new variables to variable store
+      for (const newVar of newVariables) {
+        addVariable(newVar);
+      }
+
+      toast.success(
+        `Ranking completed for ${selectedVariables.length} variable(s). New variable(s): ${newVariables.map(v => v.name).join(", ")}`
+      );
+      onClose();
+    } catch (error: any) {
+      console.error("Ranking error:", error);
+      toast.error(`Ranking failed: ${error.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const calculateRanksWithWorker = (
+    data: any[][],
+    columnIndex: number,
+    rankDirection: "largest" | "smallest",
+    tieHandling: TieHandling
+  ): Promise<(number | null)[]> => {
+    return new Promise((resolve, reject) => {
+      try {
+        const worker = createWorkerClient<
+          {
+            data: any[][];
+            variableColumnIndex: number;
+            rankDirection: "largest" | "smallest";
+            tieHandling: TieHandling;
+            variableName: string;
+          },
+          {
+            success: boolean;
+            rankedValues?: (number | null)[];
+            error?: string;
+          }
+        >("/workers/rankCases.worker.js");
+
+        worker.onMessage((result) => {
+          worker.terminate();
+          if (result.success && result.rankedValues) {
+            resolve(result.rankedValues);
+          } else {
+            reject(new Error(result.error || "Worker returned error"));
+          }
+        });
+
+        worker.onError((error) => {
+          worker.terminate();
+          reject(new Error(`Worker error: ${error.message}`));
+        });
+
+        worker.post({
+          data,
+          variableColumnIndex: columnIndex,
+          rankDirection,
+          tieHandling,
+          variableName: "temp"
+        });
+      } catch (error: any) {
+        reject(error);
+      }
+    });
+  };
+
+  const handleOK = () => {
+    processRanking();
   };
 
   const handleReset = () => {
