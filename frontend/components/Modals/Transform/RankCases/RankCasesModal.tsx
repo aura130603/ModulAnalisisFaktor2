@@ -19,6 +19,7 @@ import { useDataStore } from "@/stores/useDataStore";
 import { Variable } from "@/types/Variable";
 import { ArrowRightIcon } from "lucide-react";
 import createWorkerClient from "@/utils/workerClient";
+import { useDataStore } from "@/stores/useDataStore";
 import RankTypesDialog, { RankTypesState } from "./RankTypesDialog";
 import TiesDialog, { TieHandling } from "./TiesDialog";
 
