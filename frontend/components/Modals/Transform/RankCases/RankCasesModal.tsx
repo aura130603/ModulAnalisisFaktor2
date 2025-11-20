@@ -193,7 +193,7 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
 
         // Create new variable metadata
         const newVariable: Variable = {
-          tempId: `rank_${Date.now()}_${Math.random()}`,
+          tempId: uuidv4(),
           columnIndex: nextColumnIndex,
           name: newVarName,
           type: "NUMERIC",
