@@ -32,7 +32,9 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
   containerType = "dialog",
 }) => {
   const variables = useVariableStore((state) => state.variables);
+  const addVariable = useVariableStore((state) => state.addVariable);
   const data = useDataStore((state) => state.data);
+  const setData = useDataStore((state) => state.setData);
 
   const [selectedVariables, setSelectedVariables] = useState<string[]>([]);
   const [byVariables, setByVariables] = useState<string[]>([]);
@@ -57,6 +59,7 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
   });
   const [tiesOpen, setTiesOpen] = useState(false);
   const [tieHandling, setTieHandling] = useState<TieHandling>("mean");
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleDragStart = useCallback(
     (e: React.DragEvent<HTMLDivElement>, variable: string, source: "list" | "selected" | "by") => {
