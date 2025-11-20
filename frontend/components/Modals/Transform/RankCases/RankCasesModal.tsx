@@ -162,6 +162,7 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
       // Create a copy of data to modify
       let updatedData = data.map(row => [...row]);
       const headers = updatedData[0];
+      const newVariables: Variable[] = [];
       let nextColumnIndex = headers.length;
 
       // Process each selected variable
@@ -189,29 +190,39 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
           row.push(rankedValues[idx - 1]);
         });
 
-        // Add variable to store
-        await addVariable({
+        // Create new variable metadata
+        const newVariable: Variable = {
+          tempId: `rank_${Date.now()}_${Math.random()}`,
           columnIndex: nextColumnIndex,
           name: newVarName,
           type: "NUMERIC",
           width: 8,
           decimals: 2,
           label: `Rank of ${varName}`,
+          values: [],
+          missing: null,
+          columns: 64,
+          align: "right",
           measure: "ordinal",
           role: "output"
-        });
+        };
 
+        newVariables.push(newVariable);
         nextColumnIndex++;
       }
 
       // Update data store with all new columns
       setData(updatedData);
 
+      // Add new variables to the variable store
+      const updatedVariables = [...variables, ...newVariables];
+      setVariables(updatedVariables);
+
       // Save the data changes
-      await useDataStore.getState().saveData();
+      await saveData();
 
       toast.success(
-        `Ranking completed for ${selectedVariables.length} variable(s).`
+        `Ranking completed for ${selectedVariables.length} variable(s). New variable(s): ${newVariables.map(v => v.name).join(", ")}`
       );
       onClose();
     } catch (error: any) {
