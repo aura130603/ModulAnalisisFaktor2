@@ -33,7 +33,8 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
   containerType = "dialog",
 }) => {
   const variables = useVariableStore((state) => state.variables);
-  const setVariables = useVariableStore((state) => state.setVariables);
+  const addVariable = useVariableStore((state) => state.addVariable);
+  const loadVariables = useVariableStore((state) => state.loadVariables);
   const data = useDataStore((state) => state.data);
   const setData = useDataStore((state) => state.setData);
   const saveData = useDataStore((state) => state.saveData);
