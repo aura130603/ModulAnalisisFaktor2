@@ -160,20 +160,23 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
         return;
       }
 
-      // Create a copy of data to modify - treat all rows as data, no header row
+      // Create a copy of data to modify - preserve all existing columns
       let updatedData = data.map(row => [...row]);
       const newVariables: Variable[] = [];
-      let nextColumnIndex = updatedData.length > 0 ? updatedData[0].length : 0;
+
+      // Track the starting column index for new ranking columns
+      const startingColumnIndex = updatedData.length > 0 ? updatedData[0].length : 0;
+      let nextColumnIndex = startingColumnIndex;
 
       // Process each selected variable
       for (const varName of selectedVariables) {
         const variable = variables.find(v => v.name === varName);
         if (!variable) continue;
 
-        // Prepare data for worker - no header row, all rows are data
+        // Prepare data for worker - pass the current state of data with all existing columns
         const dataForWorker = updatedData.map(row => [...row]);
 
-        // Calculate ranks using worker
+        // Calculate ranks using worker based on the original variable column
         const rankedValues = await calculateRanksWithWorker(
           dataForWorker,
           variable.columnIndex,
@@ -184,12 +187,14 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
         // Create new variable for ranked values
         const newVarName = `R${varName}`;
 
-        // Add ranking values to ALL data rows (starting from row 0)
+        // Preserve all existing columns and add ranking values to ALL data rows
+        // Each row keeps all its existing columns, and we append the new ranking column
         for (let i = 0; i < updatedData.length; i++) {
+          // Preserve all existing values in the row and add the new ranking value
           updatedData[i].push(rankedValues[i]);
         }
 
-        // Create new variable metadata
+        // Create new variable metadata for the ranking column
         const newVariable: Variable = {
           tempId: uuidv4(),
           columnIndex: nextColumnIndex,
