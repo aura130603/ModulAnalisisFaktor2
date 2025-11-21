@@ -162,8 +162,9 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
 
       // Create a copy of data to modify
       let updatedData = data.map(row => [...row]);
+      const headers = updatedData[0];
       const newVariables: Variable[] = [];
-      let nextColumnIndex = updatedData[0].length;
+      let nextColumnIndex = headers.length;
 
       // Process each selected variable
       for (const varName of selectedVariables) {
@@ -181,13 +182,14 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
         // Create new variable for ranked values
         const newVarName = `R${varName}`;
 
-        // Add column name to header row (index 0)
-        updatedData[0].push(newVarName);
+        // Add header
+        headers.push(newVarName);
 
-        // Add ranking values to ALL data rows (starting from index 1)
-        for (let rowIdx = 1; rowIdx < updatedData.length; rowIdx++) {
-          updatedData[rowIdx].push(rankedValues[rowIdx - 1]);
-        }
+        // Add ranked values to data
+        updatedData.forEach((row, idx) => {
+          if (idx === 0) return; // Skip header row
+          row.push(rankedValues[idx - 1]);
+        });
 
         // Create new variable metadata
         const newVariable: Variable = {
