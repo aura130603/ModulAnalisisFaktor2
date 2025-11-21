@@ -182,15 +182,13 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
         // Create new variable for ranked values
         const newVarName = `R${varName}`;
 
-        // Add header and ranked values to all rows
+        // Add header
+        headers.push(newVarName);
+
+        // Add ranked values to data
         updatedData.forEach((row, idx) => {
-          if (idx === 0) {
-            // Add column header to the header row
-            row.push(newVarName);
-          } else {
-            // Add ranking value to data rows (starting from index 0 of rankedValues)
-            row.push(rankedValues[idx - 1]);
-          }
+          if (idx === 0) return; // Skip header row
+          row.push(rankedValues[idx - 1]);
         });
 
         // Create new variable metadata
