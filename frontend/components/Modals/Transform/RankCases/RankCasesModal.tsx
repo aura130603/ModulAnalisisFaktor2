@@ -216,15 +216,29 @@ const RankCasesModal: React.FC<RankCasesModalProps> = ({
         nextColumnIndex++;
       }
 
-      // Update data store with all new columns
+      // Update data store with all new columns first
       setData(updatedData);
 
-      // Add new variables to the variable store
-      const updatedVariables = [...variables, ...newVariables];
-      setVariables(updatedVariables);
-
-      // Save the data changes
+      // Save the data changes to persist the new columns
       await saveData();
+
+      // Add each new ranking variable through the proper store method
+      // This ensures variables are properly registered in the database
+      for (const newVariable of newVariables) {
+        await addVariable({
+          columnIndex: newVariable.columnIndex,
+          name: newVariable.name,
+          type: newVariable.type,
+          width: newVariable.width,
+          decimals: newVariable.decimals,
+          label: newVariable.label,
+          measure: newVariable.measure,
+          role: newVariable.role
+        });
+      }
+
+      // Reload variables to ensure they're properly synced with database
+      await loadVariables();
 
       toast.success(
         `Ranking completed for ${selectedVariables.length} variable(s). New variable(s): ${newVariables.map(v => v.name).join(", ")}`
