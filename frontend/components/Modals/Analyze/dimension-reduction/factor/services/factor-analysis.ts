@@ -1,200 +1,14 @@
-// // INI KODE (titik kunci) yang buat data disiapkan dan dikirim ke Web Worker.
-
-// import {getSlicedData, getVarDefs} from "@/hooks/useVariable";
-// import {FactorAnalysisType} from "@/components/Modals/Analyze/dimension-reduction/factor/types/factor-worker";
-// import {transformFactorAnalysisResult} from "@/components/Modals/Analyze/dimension-reduction/factor/services/factor-analysis-formatter";
-// import {resultFactorAnalysis} from "@/components/Modals/Analyze/dimension-reduction/factor/services/factor-analysis-output";
-
-// /**
-//  * Sends complete factor analysis task to web worker
-//  * All computations are offloaded to worker thread for better performance
-//  */
-// // Send all computations to worker
-
-// function performAnalysisWithWorker(
-//     data: number[][],
-//     variables: string[],
-//     configData: any
-// ): Promise<any> {
-//     return new Promise((resolve, reject) => {
-//         const worker = new Worker('/workers/FactorAnalysis/factorAnalysis.worker.js');
-
-//         const timeout = setTimeout(() => {
-//             worker.terminate();
-//             reject(new Error('Factor analysis computation timed out'));
-//         }, 60000); // 60 second timeout for complex analyses
-
-//         worker.onmessage = (event) => {
-//             clearTimeout(timeout);
-//             const { type, data: resultData, message } = event.data;
-
-//             if (type === 'factorAnalysisCompleted') {
-//                 worker.terminate();
-//                 resolve(resultData);
-//             } else if (type === 'error') {
-//                 worker.terminate();
-//                 reject(new Error(message));
-//             }
-//         };
-
-//         worker.onerror = (error) => {
-//             clearTimeout(timeout);
-//             worker.terminate();
-//             reject(error);
-//         };
-
-//         worker.postMessage({
-//             type: 'performCompleteFactorAnalysis',
-//             data: { 
-//                 data, 
-//                 variables,
-//                 configData
-//             }
-//         });
-//     });
-// }
-
-// /**
-//  * Main entry point for factor analysis
-//  * Orchestrates data preparation and worker communication
-//  */
-// export async function analyzeFactor({
-//     configData,
-//     dataVariables,
-//     variables,
-// }: FactorAnalysisType) {
-//     try {
-//         const targetVariables = configData.main.TargetVar || [];
-
-//         if (!targetVariables || targetVariables.length === 0) {
-//             console.error("No variables selected for factor analysis");
-//             return;
-//         }
-
-//         // Get raw data for selected variables
-//         const slicedDataRaw = getSlicedData({
-//             dataVariables: dataVariables,
-//             variables: variables,
-//             selectedVariables: targetVariables,
-//         });
-       
-//         // Convert to numeric 2D array (variables × samples)
-//         const slicedDataForTarget = slicedDataRaw.map((varData, varIndex) => {
-//             return varData.map((row: any) => {
-//                 const varName = targetVariables[varIndex];
-//                 const value = row[varName];
-//                 return typeof value === 'number' 
-//                     ? value 
-//                     : (value === null ? NaN : parseFloat(String(value)));
-//             });
-//         });
-        
-//         // Send all computations to worker
-//         // Send all computations to worker
-
-//         // AUTO-DOWNLOAD DEBUG FILE OF DATA SENT TO WORKER
-//         // (function downloadDebug() {
-//         //     const debugData = {
-//         //         variables: targetVariables,
-//         //         shape: {
-//         //             variables: slicedDataForTarget.length,
-//         //             samples: slicedDataForTarget[0]?.length || 0,
-//         //         },
-//         //         data: slicedDataForTarget
-//         //     };
-
-//         //     const blob = new Blob(
-//         //         [JSON.stringify(debugData, null, 2)],
-//         //         { type: "application/json" }
-//         //     );
-
-//         //     const url = URL.createObjectURL(blob);
-//         //     const a = document.createElement("a");
-//         //     a.href = url;
-//         //     a.download = "FA_debug_data_sent_to_worker.json";
-//         //     a.click();
-//         // })();
-
-//         const results = await performAnalysisWithWorker(
-//             slicedDataForTarget,
-//             targetVariables,
-//             configData
-//         );
-
-//         // Format results for display
-//         const formattedResults = transformFactorAnalysisResult(results);
-//         console.log("Factor analysis results:", formattedResults);
-
-//         // Save to result store
-//         await resultFactorAnalysis({
-//             formattedResult: formattedResults ?? [],
-//         });
-//     } catch (error) {
-//         console.error("Factor analysis error:", error);
-//         throw error;
-//     }
-// }
-
-
-
-
-import {getSlicedData, getVarDefs} from "@/hooks/useVariable";
-import {FactorAnalysisType} from "@/components/Modals/Analyze/dimension-reduction/factor/types/factor-worker";
-import {transformFactorAnalysisResult} from "@/components/Modals/Analyze/dimension-reduction/factor/services/factor-analysis-formatter";
-import {resultFactorAnalysis} from "@/components/Modals/Analyze/dimension-reduction/factor/services/factor-analysis-output";
+import { getSlicedData, getVarDefs } from "@/hooks/useVariable";
+import { FactorAnalysisType } from "@/components/Modals/Analyze/dimension-reduction/factor/types/factor-worker";
+import { transformFactorAnalysisResult } from "@/components/Modals/Analyze/dimension-reduction/factor/services/factor-analysis-formatter";
+import { resultFactorAnalysis } from "@/components/Modals/Analyze/dimension-reduction/factor/services/factor-analysis-output";
+import init, {
+    FactorAnalysis,
+} from "@/components/Modals/Analyze/dimension-reduction/factor/rust/pkg/wasm";
 
 /**
- * Sends complete factor analysis task to web worker
- * All computations are offloaded to worker thread for better performance
- */
-// Send all computations to worker
-
-function performAnalysisWithWorker(
-    data: number[][],
-    variables: string[],
-    configData: any
-): Promise<any> {
-    return new Promise((resolve, reject) => {
-        const worker = new Worker('/workers/FactorAnalysis/factorAnalysis.worker.js');
-
-        const timeout = setTimeout(() => {
-            worker.terminate();
-            reject(new Error('Factor analysis computation timed out'));
-        }, 60000); // 60 second timeout for complex analyses
-
-        worker.onmessage = (event) => {
-            clearTimeout(timeout);
-            const { type, data: resultData, message } = event.data;
-
-            if (type === 'factorAnalysisCompleted') {
-                worker.terminate();
-                resolve(resultData);
-            } else if (type === 'error') {
-                worker.terminate();
-                reject(new Error(message));
-            }
-        };
-
-        worker.onerror = (error) => {
-            clearTimeout(timeout);
-            worker.terminate();
-            reject(error);
-        };
-
-        worker.postMessage({
-            type: 'performCompleteFactorAnalysis',
-            data: { 
-                data, 
-                variables,
-                configData
-            }
-        });
-    });
-}
-
-/**
- * Main entry point for factor analysis
- * Orchestrates data preparation and worker communication
+ * Main entry point for factor analysis using WASM
+ * Orchestrates data preparation and WASM module computation
  */
 export async function analyzeFactor({
     configData,
@@ -212,82 +26,69 @@ export async function analyzeFactor({
             throw new Error("No data available for factor analysis");
         }
 
-        // Build map of variable names to their column indices
-        const columnIndexMap = new Map<string, number>();
-        variables.forEach(v => {
-            if (targetVariables.includes(v.name)) {
-                columnIndexMap.set(v.name, v.columnIndex);
-            }
+        // Initialize WASM module
+        await init();
+
+        // Get sliced data for target variables
+        const slicedDataForTarget = getSlicedData({
+            dataVariables: dataVariables,
+            variables: variables,
+            selectedVariables: targetVariables,
         });
 
-        // Verify all target variables have valid column indices
-        const missingVariables = targetVariables.filter(v => !columnIndexMap.has(v));
-        if (missingVariables.length > 0) {
-            throw new Error(`Variables not found: ${missingVariables.join(", ")}`);
-        }
+        // Get variable definitions for target variables
+        const varDefsForTarget = getVarDefs(variables, targetVariables);
 
-        // Initialize array to store data in Variables x Samples format
-        // Format: [ [VAR1_sample1, VAR1_sample2, ...], [VAR2_sample1, VAR2_sample2, ...] ]
-        const slicedDataForTarget: number[][] = targetVariables.map(() => []);
-
-        // Iterate through all data rows and extract values for target variables
-        // This ensures we capture all samples with proper data shape
-        dataVariables.forEach((row) => {
-            targetVariables.forEach((varName, varIndex) => {
-                const colIndex = columnIndexMap.get(varName);
-
-                if (colIndex !== undefined && colIndex < row.length) {
-                    const rawValue = row[colIndex];
-
-                    // Convert value to number, handling various formats
-                    let numericValue: number;
-
-                    if (rawValue === null || rawValue === undefined || rawValue === "") {
-                        numericValue = NaN; // Null/empty becomes NaN, worker will handle it
-                    } else if (typeof rawValue === 'number') {
-                        numericValue = rawValue;
-                    } else {
-                        // Parse string values, handling comma as decimal separator
-                        const stringValue = String(rawValue);
-                        numericValue = parseFloat(stringValue.replace(",", "."));
-                    }
-
-                    // Push value even if NaN - the worker will handle missing values
-                    slicedDataForTarget[varIndex].push(numericValue);
-                } else {
-                    // If column doesn't exist for this row, add NaN
-                    slicedDataForTarget[varIndex].push(NaN);
-                }
-            });
+        // Get sliced data for value target variables (if any)
+        const valueTargetVariables = configData.values?.ValueTargetVar || [];
+        const slicedDataForValueTarget = getSlicedData({
+            dataVariables: dataVariables,
+            variables: variables,
+            selectedVariables: valueTargetVariables.length > 0 ? valueTargetVariables : [],
         });
 
-        // Validate that we have samples
-        const sampleCount = slicedDataForTarget[0]?.length || 0;
-        if (sampleCount === 0) {
-            throw new Error("No data samples could be extracted for the selected variables");
-        }
+        // Get variable definitions for value target variables
+        const varDefsForValueTarget = getVarDefs(variables, valueTargetVariables.length > 0 ? valueTargetVariables : []);
 
-        // Log data structure for debugging (can be uncommented in browser console)
+        // Log data structure for debugging
         if (typeof window !== 'undefined') {
             (window as any).lastFactorAnalysisData = {
-                variables: targetVariables,
-                shape: {
-                    variables: slicedDataForTarget.length,
-                    samples: sampleCount,
-                },
-                data: slicedDataForTarget
+                targetVariables,
+                valueTargetVariables,
+                slicedDataForTarget,
+                slicedDataForValueTarget,
+                varDefsForTarget,
+                varDefsForValueTarget,
             };
         }
 
-        const results = await performAnalysisWithWorker(
+        // Create FactorAnalysis instance and run analysis
+        const factorAnalysis = new FactorAnalysis(
             slicedDataForTarget,
-            targetVariables,
+            slicedDataForValueTarget,
+            varDefsForTarget,
+            varDefsForValueTarget,
             configData
         );
 
+        // Get formatted results from WASM
+        const results = factorAnalysis.get_formatted_results();
+        console.log("Factor analysis results from WASM:", results);
+
+        // Get error messages if any
+        const errorsString = factorAnalysis.get_all_errors();
+        console.log("Factor analysis errors:", errorsString);
+
+        let errors: string[] = [];
+        if (errorsString) {
+            errors = errorsString
+                .split("\n")
+                .filter((line: string) => line.trim() !== "");
+        }
+
         // Format results for display
-        const formattedResults = transformFactorAnalysisResult(results);
-        console.log("Factor analysis results:", formattedResults);
+        const formattedResults = transformFactorAnalysisResult(results ?? {});
+        console.log("Formatted Factor analysis results:", formattedResults);
 
         // Save to result store
         await resultFactorAnalysis({
