@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001",
-    "build": "next build",
+    "build": "npm run build:wasm && next build",
+    "build:wasm": "npm run build:factor-wasm",
+    "build:factor-wasm": "cd components/Modals/Analyze/dimension-reduction/factor/rust && wasm-pack build --target web --release",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
